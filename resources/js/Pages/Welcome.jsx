@@ -3,7 +3,7 @@ import { Head, Link } from '@inertiajs/react';
 export default function Welcome({ auth }) {
     return (
         <>
-            <Head title="Week-Planner - 2026" />
+            <Head title="Week-Planner" />
             <div className="relative min-h-screen bg-white text-slate-900 font-sans selection:bg-indigo-500 selection:text-white overflow-hidden">
                 
                 <div className="absolute top-0 left-0 w-full p-6 flex justify-between items-center z-50">
@@ -39,19 +39,20 @@ export default function Welcome({ auth }) {
 
                 <div className="relative flex flex-col items-center justify-center pt-32 pb-16 lg:pt-48 lg:pb-32 px-4">
                     <div className="text-center max-w-3xl mx-auto space-y-6 z-10">
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 text-xs font-bold uppercase tracking-wide">
-                            <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
-                            New 2026 Version
-                        </div>
+                        
+                        {/* Titre Principal */}
                         <h1 className="text-6xl lg:text-8xl font-black tracking-tight text-slate-900 leading-[1.1]">
                             Own your <br />
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-500">
-                                entire week.
+                                entire month.
                             </span>
                         </h1>
+
+                        {/* Description mise à jour avec la mention des 4 semaines */}
                         <p className="text-xl text-slate-500 max-w-xl mx-auto leading-relaxed">
-                            The minimal scheduling tool designed for the modern era. Organize pro & personal life without the clutter.
+                            Stop living day-to-day. Plan your professional and personal life with our new <strong>4-week vision</strong>. Simple, clutter-free, and efficient.
                         </p>
+
                         <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
                             <Link
                                 href={route('register')}
@@ -62,6 +63,7 @@ export default function Welcome({ auth }) {
                         </div>
                     </div>
 
+                    {/* Illustration 3D CSS */}
                     <div className="mt-20 relative w-full max-w-5xl perspective-1000">
                         <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent z-20 h-full w-full"></div>
                         <div className="relative bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden transform rotate-x-12 scale-95 opacity-90 hover:opacity-100 hover:rotate-x-0 hover:scale-100 transition duration-700 ease-out">
@@ -108,6 +110,7 @@ export default function Welcome({ auth }) {
                     </div>
                 </div>
 
+                {/* Arrière-plan animé */}
                 <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
                 <div className="absolute top-0 -right-4 w-72 h-72 bg-indigo-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
                 <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>

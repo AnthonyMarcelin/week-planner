@@ -13,6 +13,8 @@ class Activity extends Model
         'end_time',
         'type',
         'user_id',
+        'week_index',
+        'group_id',
     ];
 
     public function user()

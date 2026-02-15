@@ -4,17 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\Activity;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
+use Illuminate\Support\Str;
 
 class ActivityController extends Controller
 {
-    private $daysMap = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-
     public function index()
     {
+        $activities = Activity::where('user_id', auth()->id())->get();
         return Inertia::render('Dashboard', [
-            'activities' => auth()->user()->activities,
+            'activities' => $activities,
         ]);
     }
 
@@ -23,28 +22,26 @@ class ActivityController extends Controller
         $validated = $request->validate([
             'label'      => 'required|string|max:255',
             'start_time' => 'required',
-            'end_time'   => 'required|after:start_time',
+            'end_time'   => 'required',
             'type'       => 'required|in:pro,perso',
             'days'       => 'required|array|min:1',
         ]);
 
-        foreach ($validated['days'] as $dayIndex) {
-            if ($this->hasOverlap($dayIndex, $validated['start_time'], $validated['end_time'])) {
-                throw ValidationException::withMessages([
-                    'days' => "Chevauchement détecté le " . $this->daysMap[$dayIndex] . " sur ce créneau.",
-                ]);
-            }
-        }
+        $groupId = Str::uuid();
 
         foreach ($validated['days'] as $day) {
-            Activity::create([
-                'label'       => $validated['label'],
-                'start_time'  => $validated['start_time'],
-                'end_time'    => $validated['end_time'],
-                'type'        => $validated['type'],
-                'day_of_week' => $day,
-                'user_id'     => auth()->id(),
-            ]);
+            for ($i = 0; $i < 4; $i++) {
+                Activity::create([
+                    'label'       => $validated['label'],
+                    'start_time'  => $validated['start_time'],
+                    'end_time'    => $validated['end_time'],
+                    'type'        => $validated['type'],
+                    'day_of_week' => $day,
+                    'user_id'     => auth()->id(),
+                    'week_index'  => $i,
+                    'group_id'    => $groupId,
+                ]);
+            }
         }
 
         return redirect()->back();
@@ -59,41 +56,49 @@ class ActivityController extends Controller
         $validated = $request->validate([
             'label'      => 'required|string|max:255',
             'start_time' => 'required',
-            'end_time'   => 'required|after:start_time',
+            'end_time'   => 'required',
             'type'       => 'required|in:pro,perso',
+            'scope'      => 'required|in:single,series',
         ]);
 
-        if ($this->hasOverlap($activity->day_of_week, $validated['start_time'], $validated['end_time'], $activity->id)) {
-            throw ValidationException::withMessages([
-                'start_time' => "Ce créneau chevauche une autre activité existante.",
+        if ($request->scope === 'series' && $activity->group_id) {
+            Activity::where('group_id', $activity->group_id)
+                ->where('user_id', auth()->id())
+                ->update([
+                    'label'      => $validated['label'],
+                    'start_time' => $validated['start_time'],
+                    'end_time'   => $validated['end_time'],
+                    'type'       => $validated['type'],
+                ]);
+        } else {
+            $activity->update([
+                'label'      => $validated['label'],
+                'start_time' => $validated['start_time'],
+                'end_time'   => $validated['end_time'],
+                'type'       => $validated['type'],
+                'group_id'   => null, 
             ]);
         }
-
-        $activity->update($validated);
 
         return redirect()->back();
     }
 
-    public function destroy(Activity $activity)
+    public function destroy(Request $request, Activity $activity)
     {
         if ($activity->user_id !== auth()->id()) {
             abort(403);
         }
 
-        $activity->delete();
+        $scope = $request->input('scope', 'single');
+
+        if ($scope === 'series' && $activity->group_id) {
+            Activity::where('group_id', $activity->group_id)
+                ->where('user_id', auth()->id())
+                ->delete();
+        } else {
+            $activity->delete();
+        }
 
         return redirect()->back();
-    }
-
-    private function hasOverlap($dayOfWeek, $startTime, $endTime, $ignoreId = null)
-    {
-        return Activity::where('user_id', auth()->id())
-            ->where('day_of_week', $dayOfWeek)
-            ->where('id', '!=', $ignoreId)
-            ->where(function ($query) use ($startTime, $endTime) {
-                $query->where('start_time', '<', $endTime)
-                      ->where('end_time', '>', $startTime);
-            })
-            ->exists();
     }
 }

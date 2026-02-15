@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
@@ -6,6 +6,7 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import TextInput from '@/Components/TextInput';
 import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
+import Checkbox from '@/Components/Checkbox'; // On importe la Checkbox
 import { Head, useForm } from '@inertiajs/react';
 
 const timeToNumber = (timeStr) => {
@@ -21,6 +22,7 @@ export default function Dashboard({ auth, activities }) {
     const [isNightHidden, setIsNightHidden] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [selectedDayMobile, setSelectedDayMobile] = useState(0);
+    const [weekOffset, setWeekOffset] = useState(0);
 
     const startHour = isNightHidden ? 4 : 0;
     const visibleHours = Array.from({ length: 24 - startHour }, (_, i) => i + startHour);
@@ -32,14 +34,42 @@ export default function Dashboard({ auth, activities }) {
         end_time: '',
         type: 'pro',
         days: [],
-        day_of_week: null
+        day_of_week: null,
+        group_id: null,
+        scope: 'single'
     });
 
     const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
+    const weekDates = useMemo(() => {
+        const now = new Date();
+        const currentDay = now.getDay();
+        const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+        
+        const mondayOfCurrentWeek = new Date(now);
+        mondayOfCurrentWeek.setDate(now.getDate() + distanceToMonday);
+
+        const displayedMonday = new Date(mondayOfCurrentWeek);
+        displayedMonday.setDate(mondayOfCurrentWeek.getDate() + (weekOffset * 7));
+
+        const displayedSunday = new Date(displayedMonday);
+        displayedSunday.setDate(displayedMonday.getDate() + 6);
+
+        const format = (d) => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+
+        return {
+            start: format(displayedMonday),
+            end: format(displayedSunday),
+            mondayObject: displayedMonday,
+            todayString: new Date().toLocaleDateString('fr-FR')
+        };
+    }, [weekOffset]);
+
     const openCreateModal = () => {
         setIsEditing(false);
-        setData({ id: null, label: '', start_time: '', end_time: '', type: 'pro', days: [], day_of_week: null });
+        setData({
+            id: null, label: '', start_time: '', end_time: '', type: 'pro', days: [], day_of_week: null, group_id: null, scope: 'series' 
+        });
         clearErrors();
         setShowModal(true);
     };
@@ -53,7 +83,9 @@ export default function Dashboard({ auth, activities }) {
             end_time: activity.end_time.slice(0, 5),
             type: activity.type,
             days: [],
-            day_of_week: activity.day_of_week
+            day_of_week: activity.day_of_week,
+            group_id: activity.group_id,
+            scope: 'single'
         });
         clearErrors();
         setShowModal(true);
@@ -62,13 +94,24 @@ export default function Dashboard({ auth, activities }) {
     const submit = (e) => {
         e.preventDefault();
         const options = { onSuccess: () => { setShowModal(false); reset(); } };
-        if (isEditing) put(`/activities/${data.id}`, options);
-        else post('/activities', options);
+        
+        if (isEditing) {
+            put(`/activities/${data.id}`, options);
+        } else {
+            post('/activities', options);
+        }
     };
 
     const handleDelete = () => {
-        if (confirm('Voulez-vous vraiment supprimer cette activité ?')) {
-            destroy(`/activities/${data.id}`, { onSuccess: () => { setShowModal(false); reset(); } });
+        const message = data.scope === 'series' 
+            ? 'Voulez-vous vraiment supprimer TOUTE la série (4 semaines) ?'
+            : 'Voulez-vous vraiment supprimer UNIQUEMENT cette activité ?';
+
+        if (confirm(message)) {
+            destroy(`/activities/${data.id}`, { 
+                data: { scope: data.scope },
+                onSuccess: () => { setShowModal(false); reset(); } 
+            });
         }
     };
 
@@ -81,15 +124,38 @@ export default function Dashboard({ auth, activities }) {
         <AuthenticatedLayout
             user={auth.user}
             header={
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <h2 className="text-xl font-bold text-slate-800 tracking-tight">Mon Planning</h2>
-                    <div className="flex gap-2 w-full sm:w-auto justify-end">
-                        <SecondaryButton onClick={() => setIsNightHidden(!isNightHidden)} className="text-xs">
-                            {isNightHidden ? '👁️ 00h+' : '🌙 Cacher'}
-                        </SecondaryButton>
-                        <PrimaryButton onClick={openCreateModal} className="text-xs">
-                            + Activité
-                        </PrimaryButton>
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <h2 className="text-xl font-bold text-slate-800 tracking-tight">Mon Planning</h2>
+                        
+                        <div className="flex items-center bg-white rounded-xl shadow-sm border border-slate-200 p-1">
+                            <button 
+                                onClick={() => setWeekOffset(prev => Math.max(0, prev - 1))}
+                                disabled={weekOffset === 0}
+                                className="p-2 hover:bg-slate-50 disabled:opacity-30 rounded-lg transition text-slate-600"
+                            >
+                                ⬅️
+                            </button>
+                            <span className="px-2 sm:px-4 text-xs sm:text-sm font-bold text-slate-700 w-[180px] sm:w-[220px] text-center truncate">
+                                {weekDates.start} - {weekDates.end}
+                            </span>
+                            <button 
+                                onClick={() => setWeekOffset(prev => Math.min(3, prev + 1))}
+                                disabled={weekOffset === 3}
+                                className="p-2 hover:bg-slate-50 disabled:opacity-30 rounded-lg transition text-slate-600"
+                            >
+                                ➡️
+                            </button>
+                        </div>
+
+                        <div className="flex gap-2 w-full sm:w-auto justify-end">
+                            <SecondaryButton onClick={() => setIsNightHidden(!isNightHidden)} className="text-xs">
+                                {isNightHidden ? '👁️ 00h+' : '🌙 Cacher'}
+                            </SecondaryButton>
+                            <PrimaryButton onClick={openCreateModal} className="text-xs whitespace-nowrap">
+                                + Activité
+                            </PrimaryButton>
+                        </div>
                     </div>
                 </div>
             }
@@ -99,23 +165,31 @@ export default function Dashboard({ auth, activities }) {
             <div className="py-6 sm:py-12 bg-slate-50/50 min-h-screen">
                 <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
                     
-                    <div className="md:hidden flex overflow-x-auto pb-4 gap-2 px-4">
-                        {days.map((day, index) => (
-                            <button
-                                key={day}
-                                onClick={() => setSelectedDayMobile(index)}
-                                className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all shadow-sm border
-                                    ${selectedDayMobile === index 
-                                        ? 'bg-indigo-600 text-white border-indigo-600' 
-                                        : 'bg-white text-slate-500 border-slate-200'}`}
-                            >
-                                {day.slice(0, 3)}
-                            </button>
-                        ))}
+                    <div className="md:hidden flex overflow-x-auto pb-4 gap-2 px-4 scrollbar-hide">
+                        {days.map((day, index) => {
+                            const d = new Date(weekDates.mondayObject);
+                            d.setDate(d.getDate() + index);
+                            const isToday = d.toLocaleDateString('fr-FR') === weekDates.todayString;
+
+                            return (
+                                <button
+                                    key={day}
+                                    onClick={() => setSelectedDayMobile(index)}
+                                    className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all shadow-sm border flex flex-col items-center
+                                        ${selectedDayMobile === index 
+                                            ? 'bg-indigo-600 text-white border-indigo-600' 
+                                            : isToday 
+                                                ? 'bg-white text-indigo-600 border-indigo-200 ring-2 ring-indigo-100'
+                                                : 'bg-white text-slate-500 border-slate-200'}`}
+                                >
+                                    <span>{day.slice(0, 3)}</span>
+                                    <span className="text-[10px] font-normal">{d.getDate()}</span>
+                                </button>
+                            )
+                        })}
                     </div>
 
                     <div className="flex bg-white shadow-xl shadow-slate-200/60 sm:rounded-2xl overflow-hidden border border-slate-200">
-                        
                         <div className="w-14 sm:w-20 bg-slate-50/50 border-r border-slate-200 pt-[48px] flex-shrink-0">
                             {visibleHours.map(hour => (
                                 <div key={hour} className="h-[40px] text-[10px] sm:text-xs text-slate-400 text-center border-b border-slate-100 font-medium flex items-center justify-center">
@@ -125,50 +199,62 @@ export default function Dashboard({ auth, activities }) {
                         </div>
 
                         <div className="flex-1 grid grid-cols-1 md:grid-cols-7 overflow-hidden md:min-w-[840px] md:overflow-x-auto">
-                            {days.map((day, dayIndex) => (
-                                <div 
-                                    key={day} 
-                                    className={`relative border-r border-slate-100 last:border-r-0 ${selectedDayMobile === dayIndex ? 'block' : 'hidden md:block'}`}
-                                >
-                                    <div className="h-[48px] border-b border-slate-200 bg-slate-50/30 flex items-center justify-center font-bold text-slate-600 text-xs uppercase tracking-widest">
-                                        {day}
-                                    </div>
+                            {days.map((day, dayIndex) => {
+                                const columnDate = new Date(weekDates.mondayObject);
+                                columnDate.setDate(columnDate.getDate() + dayIndex);
+                                const isToday = columnDate.toLocaleDateString('fr-FR') === weekDates.todayString;
 
-                                    <div className="relative">
-                                        {visibleHours.map(hour => (
-                                            <div key={hour} className="h-[40px] border-b border-slate-50"></div>
-                                        ))}
+                                return (
+                                    <div 
+                                        key={day} 
+                                        className={`relative border-r border-slate-100 last:border-r-0 ${selectedDayMobile === dayIndex ? 'block' : 'hidden md:block'}`}
+                                    >
+                                        <div className={`h-[48px] border-b border-slate-200 flex flex-col items-center justify-center font-bold text-[10px] uppercase tracking-widest transition-colors
+                                            ${isToday ? 'bg-indigo-600 text-white shadow-inner' : 'bg-slate-50/30 text-slate-600'}`}>
+                                            <span>{day}</span>
+                                            <span className={`text-[9px] ${isToday ? 'text-indigo-100' : 'text-slate-400'}`}>
+                                                {columnDate.getDate()} {columnDate.toLocaleDateString('fr-FR', { month: 'short' }).toUpperCase()}
+                                            </span>
+                                        </div>
 
-                                        {activities && activities
-                                            .filter(a => Number(a.day_of_week) === dayIndex && timeToNumber(a.start_time) >= startHour)
-                                            .map((activity) => {
-                                                const start = timeToNumber(activity.start_time);
-                                                const end = timeToNumber(activity.end_time);
-                                                const duration = end - start;
+                                        <div className="relative">
+                                            {visibleHours.map(hour => (
+                                                <div key={hour} className="h-[40px] border-b border-slate-50"></div>
+                                            ))}
 
-                                                return (
-                                                    <div
-                                                        key={activity.id}
-                                                        onClick={() => openEditModal(activity)}
-                                                        className={`absolute left-1 right-1 rounded-md p-2 text-[10px] leading-tight overflow-hidden shadow-sm border-l-4 z-10 cursor-pointer transition-all hover:brightness-95 hover:scale-[1.01]
-                                                            ${activity.type === 'pro' 
-                                                                ? 'bg-indigo-50 text-indigo-700 border-indigo-500' 
-                                                                : 'bg-emerald-50 text-emerald-700 border-emerald-500'}`}
-                                                        style={{
-                                                            top: `${(start - startHour) * HOUR_HEIGHT}px`,
-                                                            height: `${duration * HOUR_HEIGHT}px`,
-                                                        }}
-                                                    >
-                                                        <div className="font-bold truncate">{activity.label}</div>
-                                                        <div className="opacity-80 font-medium">
-                                                            {activity.start_time.slice(0, 5)} {duration >= 1 && `- ${activity.end_time.slice(0, 5)}`}
+                                            {activities && activities
+                                                .filter(a => Number(a.day_of_week) === dayIndex && 
+                                                             timeToNumber(a.start_time) >= startHour && 
+                                                             Number(a.week_index) === weekOffset)
+                                                .map((activity) => {
+                                                    const start = timeToNumber(activity.start_time);
+                                                    const end = timeToNumber(activity.end_time);
+                                                    const duration = end - start;
+
+                                                    return (
+                                                        <div
+                                                            key={activity.id}
+                                                            onClick={() => openEditModal(activity)}
+                                                            className={`absolute left-1 right-1 rounded-md p-2 text-[10px] leading-tight overflow-hidden shadow-sm border-l-4 z-10 cursor-pointer transition-all hover:brightness-95 hover:scale-[1.01]
+                                                                ${activity.type === 'pro' 
+                                                                    ? 'bg-indigo-50 text-indigo-700 border-indigo-500' 
+                                                                    : 'bg-emerald-50 text-emerald-700 border-emerald-500'}`}
+                                                            style={{
+                                                                top: `${(start - startHour) * HOUR_HEIGHT}px`,
+                                                                height: `${duration * HOUR_HEIGHT}px`,
+                                                            }}
+                                                        >
+                                                            <div className="font-bold truncate">{activity.label}</div>
+                                                            <div className="opacity-80 font-medium">
+                                                                {activity.start_time.slice(0, 5)} {duration >= 1 && `- ${activity.end_time.slice(0, 5)}`}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                );
-                                            })}
+                                                    );
+                                                })}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
@@ -223,6 +309,24 @@ export default function Dashboard({ auth, activities }) {
                             </div>
                         </div>
 
+                        {isEditing && data.group_id && (
+                            <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+                                <label className="flex items-center">
+                                    <Checkbox 
+                                        name="scope" 
+                                        checked={data.scope === 'series'} 
+                                        onChange={(e) => setData('scope', e.target.checked ? 'series' : 'single')}
+                                    />
+                                    <span className="ms-2 text-sm text-indigo-900 font-medium">
+                                        Appliquer aux 4 semaines
+                                    </span>
+                                </label>
+                                <p className="text-[10px] text-indigo-600 mt-1 ml-6">
+                                    Si coché, la modification ou la suppression s'appliquera à toute la série.
+                                </p>
+                            </div>
+                        )}
+
                         {!isEditing && (
                             <div>
                                 <InputLabel value="Jours de la semaine" className="mb-2" />
@@ -238,6 +342,7 @@ export default function Dashboard({ auth, activities }) {
                                         </button>
                                     ))}
                                 </div>
+                                <p className="text-[10px] text-slate-400 mt-1 italic">Créera automatiquement l'activité pour les 4 semaines à venir.</p>
                                 <InputError message={errors.days} className="mt-1" />
                             </div>
                         )}
