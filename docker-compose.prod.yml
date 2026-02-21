@@ -1,0 +1,17 @@
+services:
+    web:
+        build:
+            context: .
+            dockerfile: Dockerfile.prod
+        image: week-planner-prod
+        container_name: week-planner
+        restart: unless-stopped
+        ports:
+            - "8080:80"
+        env_file:
+            - .env
+        volumes:
+            - planner_data:/var/www/html/database
+
+volumes:
+    planner_data:
