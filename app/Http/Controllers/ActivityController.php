@@ -3,17 +3,40 @@
 namespace App\Http\Controllers;
 
 use App\Models\Activity;
+use App\Models\Profile;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
 
 class ActivityController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $activities = Activity::where('user_id', auth()->id())->get();
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        $profiles = $user->profiles;
+
+        if ($profiles->isEmpty()) {
+            $defaultProfile = $user->profiles()->create([
+                'name' => 'Mon Planning',
+                'slug' => Str::random(10),
+                'is_public' => false,
+            ]);
+            $profiles->push($defaultProfile);
+        }
+
+        $currentProfileId = $request->input('profile_id', $profiles->first()->id);
+
+        Activity::where('user_id', $user->id)->whereNull('profile_id')->update(['profile_id' => $currentProfileId]);
+
+        $activities = Activity::where('profile_id', $currentProfileId)->get();
+
         return Inertia::render('Dashboard', [
             'activities' => $activities,
+            'profiles' => $profiles,
+            'currentProfileId' => (int) $currentProfileId,
         ]);
     }
 
@@ -25,6 +48,7 @@ class ActivityController extends Controller
             'end_time'   => 'required',
             'type'       => 'required|in:pro,perso',
             'days'       => 'required|array|min:1',
+            'profile_id' => 'required|exists:profiles,id',
         ]);
 
         $groupId = Str::uuid();
@@ -37,7 +61,8 @@ class ActivityController extends Controller
                     'end_time'    => $validated['end_time'],
                     'type'        => $validated['type'],
                     'day_of_week' => $day,
-                    'user_id'     => auth()->id(),
+                    'user_id'     => Auth::id(),
+                    'profile_id'  => $validated['profile_id'],
                     'week_index'  => $i,
                     'group_id'    => $groupId,
                 ]);
@@ -49,7 +74,7 @@ class ActivityController extends Controller
 
     public function update(Request $request, Activity $activity)
     {
-        if ($activity->user_id !== auth()->id()) {
+        if ($activity->user_id !== Auth::id()) {
             abort(403);
         }
 
@@ -63,7 +88,7 @@ class ActivityController extends Controller
 
         if ($request->scope === 'series' && $activity->group_id) {
             Activity::where('group_id', $activity->group_id)
-                ->where('user_id', auth()->id())
+                ->where('user_id', Auth::id())
                 ->update([
                     'label'      => $validated['label'],
                     'start_time' => $validated['start_time'],
@@ -76,7 +101,7 @@ class ActivityController extends Controller
                 'start_time' => $validated['start_time'],
                 'end_time'   => $validated['end_time'],
                 'type'       => $validated['type'],
-                'group_id'   => null, 
+                'group_id'   => null,
             ]);
         }
 
@@ -85,7 +110,7 @@ class ActivityController extends Controller
 
     public function destroy(Request $request, Activity $activity)
     {
-        if ($activity->user_id !== auth()->id()) {
+        if ($activity->user_id !== Auth::id()) {
             abort(403);
         }
 
@@ -93,7 +118,7 @@ class ActivityController extends Controller
 
         if ($scope === 'series' && $activity->group_id) {
             Activity::where('group_id', $activity->group_id)
-                ->where('user_id', auth()->id())
+                ->where('user_id', Auth::id())
                 ->delete();
         } else {
             $activity->delete();
