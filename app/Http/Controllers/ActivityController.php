@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Activity;
 use App\Models\Profile;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 
 class ActivityController extends Controller
 {
+    use AuthorizesRequests;
     public function index(Request $request)
     {
         /** @var \App\Models\User $user */
@@ -21,15 +23,13 @@ class ActivityController extends Controller
         if ($profiles->isEmpty()) {
             $defaultProfile = $user->profiles()->create([
                 'name' => 'Mon Planning',
-                'slug' => Str::random(10),
+                'slug' => Str::random(24),
                 'is_public' => false,
             ]);
             $profiles->push($defaultProfile);
         }
 
         $currentProfileId = $request->input('profile_id', $profiles->first()->id);
-
-        Activity::where('user_id', $user->id)->whereNull('profile_id')->update(['profile_id' => $currentProfileId]);
 
         $activities = Activity::where('profile_id', $currentProfileId)->get();
 
@@ -45,11 +45,14 @@ class ActivityController extends Controller
         $validated = $request->validate([
             'label'      => 'required|string|max:255',
             'start_time' => 'required',
-            'end_time'   => 'required',
+            'end_time'   => 'required|after:start_time',
             'type'       => 'required|in:pro,perso',
             'days'       => 'required|array|min:1',
             'profile_id' => 'required|exists:profiles,id',
         ]);
+
+        abort_if(Profile::where('id', $validated['profile_id'])
+            ->where('user_id', Auth::id())->doesntExist(), 403);
 
         $groupId = Str::uuid();
 
@@ -74,14 +77,13 @@ class ActivityController extends Controller
 
     public function update(Request $request, Activity $activity)
     {
-        if ($activity->user_id !== Auth::id()) {
-            abort(403);
-        }
+
+        $this->authorize('update', $activity);
 
         $validated = $request->validate([
             'label'      => 'required|string|max:255',
             'start_time' => 'required',
-            'end_time'   => 'required',
+            'end_time'   => 'required|after:start_time',
             'type'       => 'required|in:pro,perso',
             'scope'      => 'required|in:single,series',
         ]);
@@ -110,9 +112,7 @@ class ActivityController extends Controller
 
     public function destroy(Request $request, Activity $activity)
     {
-        if ($activity->user_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('delete', $activity);
 
         $scope = $request->input('scope', 'single');
 

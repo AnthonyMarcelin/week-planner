@@ -1,21 +1,11 @@
 import { useState, useMemo } from 'react';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import Modal from '@/Components/Modal';
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
-import TextInput from '@/Components/TextInput';
-import InputLabel from '@/Components/InputLabel';
-import InputError from '@/Components/InputError';
-import Checkbox from '@/Components/Checkbox';
-import { Head, useForm, router } from '@inertiajs/react';
-
-const timeToNumber = timeStr => {
-    if (!timeStr) return 0;
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    return hours + minutes / 60;
-};
-
-const HOUR_HEIGHT = 60;
+import { Head, router } from '@inertiajs/react';
+import WeekGrid from '@/Components/WeekGrid';
+import ActivityForm from '@/Components/ActivityForm';
+import AgendasModal from '@/Components/AgendasModal';
 
 export default function Dashboard({
     auth,
@@ -28,48 +18,20 @@ export default function Dashboard({
     const [isEditing, setIsEditing] = useState(false);
     const [selectedDayMobile, setSelectedDayMobile] = useState(0);
     const [weekOffset, setWeekOffset] = useState(0);
-
     const [showAgendasModal, setShowAgendasModal] = useState(false);
-    const [newAgendaName, setNewAgendaName] = useState('');
+    const [activityToEdit, setActivityToEdit] = useState(null);
 
-    const startHour = isNightHidden ? 4 : 0;
-    const visibleHours = Array.from(
-        { length: 24 - startHour },
-        (_, i) => i + startHour
-    );
+    const handleActivityClick = (activity) => {
+        setIsEditing(true);
+        setActivityToEdit(activity);
+        setShowModal(true);
+    };
 
-    const {
-        data,
-        setData,
-        post,
-        put,
-        delete: destroy,
-        processing,
-        errors,
-        reset,
-        clearErrors,
-    } = useForm({
-        id: null,
-        label: '',
-        start_time: '',
-        end_time: '',
-        type: 'pro',
-        days: [],
-        day_of_week: null,
-        group_id: null,
-        scope: 'single',
-        profile_id: currentProfileId,
-    });
-
-    const days = [
-        'Lundi',
-        'Mardi',
-        'Mercredi',
-        'Jeudi',
-        'Vendredi',
-        'Samedi',
-        'Dimanche',
-    ];
+    const handleCloseModal = () => {
+        setShowModal(false);
+        setActivityToEdit(null);
+        setIsEditing(false);
+    };
 
     const weekDates = useMemo(() => {
         const now = new Date();
@@ -96,84 +58,10 @@ export default function Dashboard({
         };
     }, [weekOffset]);
 
-    const openCreateModal = () => {
-        setIsEditing(false);
-        setData({
-            id: null,
-            label: '',
-            start_time: '',
-            end_time: '',
-            type: 'pro',
-            days: [],
-            day_of_week: null,
-            group_id: null,
-            scope: 'series',
-            profile_id: currentProfileId,
-        });
-        clearErrors();
-        setShowModal(true);
-    };
-
-    const openEditModal = activity => {
-        setIsEditing(true);
-        setData({
-            id: activity.id,
-            label: activity.label,
-            start_time: activity.start_time.slice(0, 5),
-            end_time: activity.end_time.slice(0, 5),
-            type: activity.type,
-            days: [],
-            day_of_week: activity.day_of_week,
-            group_id: activity.group_id,
-            scope: 'single',
-            profile_id: currentProfileId,
-        });
-        clearErrors();
-        setShowModal(true);
-    };
-
-    const submit = e => {
-        e.preventDefault();
-        const options = {
-            onSuccess: () => {
-                setShowModal(false);
-                reset();
-            },
-        };
-
-        if (isEditing) {
-            put(`/activities/${data.id}`, options);
-        } else {
-            post('/activities', options);
-        }
-    };
-
-    const handleDelete = () => {
-        const message =
-            data.scope === 'series'
-                ? 'Voulez-vous vraiment supprimer TOUTE la série (4 semaines) ?'
-                : 'Voulez-vous vraiment supprimer UNIQUEMENT cette activité ?';
-
-        if (confirm(message)) {
-            destroy(`/activities/${data.id}`, {
-                data: { scope: data.scope },
-                onSuccess: () => {
-                    setShowModal(false);
-                    reset();
-                },
-            });
-        }
-    };
-
-    const handleDayChange = dayIndex => {
-        const currentDays = data.days;
-        setData(
-            'days',
-            currentDays.includes(dayIndex)
-                ? currentDays.filter(id => id !== dayIndex)
-                : [...currentDays, dayIndex]
-        );
-    };
+    // Gestion du profil par défaut
+    if (profiles.length === 0) {
+        return null;
+    }
 
     return (
         <AuthenticatedLayout
@@ -182,23 +70,28 @@ export default function Dashboard({
                 <div className='flex flex-col gap-4'>
                     <div className='flex flex-col sm:flex-row justify-between items-center gap-4'>
                         <div className='flex items-center gap-2'>
-                            <select
-                                value={currentProfileId || ''}
-                                onChange={e => {
-                                    router.get(
-                                        '/dashboard',
-                                        { profile_id: e.target.value },
-                                        { preserveState: true }
-                                    );
-                                }}
-                                className='text-xl font-bold text-slate-800 tracking-tight bg-transparent border-none focus:ring-0 cursor-pointer hover:bg-slate-100 rounded-lg py-1 pl-2 pr-8'
-                            >
-                                {profiles.map(profile => (
-                                    <option key={profile.id} value={profile.id}>
-                                        {profile.name}
-                                    </option>
-                                ))}
-                            </select>
+                            <div className='flex items-center gap-1'>
+                                <select
+                                    value={currentProfileId || ''}
+                                    onChange={e => {
+                                        router.get(
+                                            '/dashboard',
+                                            { profile_id: e.target.value },
+                                            { preserveState: true }
+                                        );
+                                    }}
+                                    className='text-xl font-bold text-slate-800 tracking-tight bg-transparent border-none focus:ring-0 cursor-pointer hover:bg-slate-100 rounded-lg py-1 pl-2 pr-8'
+                                >
+                                    {profiles.map(profile => (
+                                        <option key={profile.id} value={profile.id}>
+                                            {profile.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <span className='text-xs text-slate-400 font-medium'>
+                                    ({profiles.find(p => p.id === currentProfileId)?.is_public ? '🌐 Public' : '🔒 Privé'})
+                                </span>
+                            </div>
                             <button
                                 onClick={() => setShowAgendasModal(true)}
                                 className='p-2 bg-white border border-slate-200 text-slate-500 rounded-lg hover:bg-slate-50 transition shadow-sm text-sm'
@@ -240,7 +133,10 @@ export default function Dashboard({
                                 {isNightHidden ? '👁️ 00h+' : '🌙 Cacher'}
                             </SecondaryButton>
                             <PrimaryButton
-                                onClick={openCreateModal}
+                                onClick={() => {
+                                    setIsEditing(false);
+                                    setShowModal(true);
+                                }}
                                 className='text-xs whitespace-nowrap'
                             >
                                 + Activité
@@ -254,495 +150,33 @@ export default function Dashboard({
 
             <div className='py-6 sm:py-12 bg-slate-50/50 min-h-screen'>
                 <div className='mx-auto max-w-7xl sm:px-6 lg:px-8'>
-                    <div className='md:hidden flex overflow-x-auto pb-4 gap-2 px-4 scrollbar-hide'>
-                        {days.map((day, index) => {
-                            const d = new Date(weekDates.mondayObject);
-                            d.setDate(d.getDate() + index);
-                            const isToday =
-                                d.toLocaleDateString('fr-FR') ===
-                                weekDates.todayString;
-
-                            return (
-                                <button
-                                    key={day}
-                                    onClick={() => setSelectedDayMobile(index)}
-                                    className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all shadow-sm border flex flex-col items-center
-                                        ${
-                                            selectedDayMobile === index
-                                                ? 'bg-indigo-600 text-white border-indigo-600'
-                                                : isToday
-                                                  ? 'bg-white text-indigo-600 border-indigo-200 ring-2 ring-indigo-100'
-                                                  : 'bg-white text-slate-500 border-slate-200'
-                                        }`}
-                                >
-                                    <span>{day.slice(0, 3)}</span>
-                                    <span className='text-[10px] font-normal'>
-                                        {d.getDate()}
-                                    </span>
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    <div className='flex bg-white shadow-xl shadow-slate-200/60 sm:rounded-2xl overflow-hidden border border-slate-200'>
-                        <div className='w-14 sm:w-20 bg-slate-50/50 border-r border-slate-200 pt-[48px] flex-shrink-0'>
-                            {visibleHours.map(hour => (
-                                <div
-                                    key={hour}
-                                    className='h-[60px] text-[10px] sm:text-xs text-slate-400 text-center border-b border-slate-100 font-medium flex items-center justify-center'
-                                >
-                                    {hour.toString().padStart(2, '0')}:00
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className='flex-1 grid grid-cols-1 md:grid-cols-7 overflow-hidden md:min-w-[840px] md:overflow-x-auto'>
-                            {days.map((day, dayIndex) => {
-                                const columnDate = new Date(
-                                    weekDates.mondayObject
-                                );
-                                columnDate.setDate(
-                                    columnDate.getDate() + dayIndex
-                                );
-                                const isToday =
-                                    columnDate.toLocaleDateString('fr-FR') ===
-                                    weekDates.todayString;
-
-                                return (
-                                    <div
-                                        key={day}
-                                        className={`relative border-r border-slate-100 last:border-r-0 ${selectedDayMobile === dayIndex ? 'block' : 'hidden md:block'}`}
-                                    >
-                                        <div
-                                            className={`h-[48px] border-b border-slate-200 flex flex-col items-center justify-center font-bold text-[10px] uppercase tracking-widest transition-colors
-                                            ${isToday ? 'bg-indigo-600 text-white shadow-inner' : 'bg-slate-50/30 text-slate-600'}`}
-                                        >
-                                            <span>{day}</span>
-                                            <span
-                                                className={`text-[9px] ${isToday ? 'text-indigo-100' : 'text-slate-400'}`}
-                                            >
-                                                {columnDate.getDate()}{' '}
-                                                {columnDate
-                                                    .toLocaleDateString(
-                                                        'fr-FR',
-                                                        { month: 'short' }
-                                                    )
-                                                    .toUpperCase()}
-                                            </span>
-                                        </div>
-
-                                        <div className='relative'>
-                                            {visibleHours.map(hour => (
-                                                <div
-                                                    key={hour}
-                                                    className='h-[60px] border-b border-slate-50'
-                                                ></div>
-                                            ))}
-
-                                            {activities &&
-                                                activities
-                                                    .filter(
-                                                        a =>
-                                                            Number(
-                                                                a.day_of_week
-                                                            ) === dayIndex &&
-                                                            timeToNumber(
-                                                                a.start_time
-                                                            ) >= startHour &&
-                                                            Number(
-                                                                a.week_index
-                                                            ) === weekOffset
-                                                    )
-                                                    .map(activity => {
-                                                        const start =
-                                                            timeToNumber(
-                                                                activity.start_time
-                                                            );
-                                                        const end =
-                                                            timeToNumber(
-                                                                activity.end_time
-                                                            );
-                                                        const duration =
-                                                            end - start;
-
-                                                        return (
-                                                            <div
-                                                                key={
-                                                                    activity.id
-                                                                }
-                                                                onClick={() =>
-                                                                    openEditModal(
-                                                                        activity
-                                                                    )
-                                                                }
-                                                                className={`absolute left-1 right-1 rounded-md p-2 text-[10px] leading-tight overflow-hidden shadow-sm border-l-4 z-10 cursor-pointer transition-all hover:brightness-95 hover:scale-[1.02] hover:shadow-md hover:z-50
-                                                                ${
-                                                                    activity.type ===
-                                                                    'pro'
-                                                                        ? 'bg-indigo-50 text-indigo-700 border-indigo-500'
-                                                                        : 'bg-emerald-50 text-emerald-700 border-emerald-500'
-                                                                }`}
-                                                                style={{
-                                                                    top: `${(start - startHour) * HOUR_HEIGHT}px`,
-                                                                    height: `${duration * HOUR_HEIGHT}px`,
-                                                                    minHeight:
-                                                                        '28px',
-                                                                }}
-                                                            >
-                                                                <div
-                                                                    className={`flex ${duration <= 0.5 ? 'flex-row gap-2 items-baseline' : 'flex-col'}`}
-                                                                >
-                                                                    <div className='font-bold truncate'>
-                                                                        {
-                                                                            activity.label
-                                                                        }
-                                                                    </div>
-                                                                    <div className='opacity-80 font-medium whitespace-nowrap text-[9px]'>
-                                                                        {activity.start_time.slice(
-                                                                            0,
-                                                                            5
-                                                                        )}
-                                                                        {duration >
-                                                                            0.5 &&
-                                                                            ` - ${activity.end_time.slice(0, 5)}`}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
+                    <WeekGrid
+                        activities={activities}
+                        profiles={profiles}
+                        currentProfileId={currentProfileId}
+                        weekOffset={weekOffset}
+                        isNightHidden={isNightHidden}
+                        selectedDayMobile={selectedDayMobile}
+                        onDayMobileChange={setSelectedDayMobile}
+                        onActivityClick={handleActivityClick}
+                    />
                 </div>
             </div>
 
-            <Modal show={showModal} onClose={() => setShowModal(false)}>
-                <form onSubmit={submit} className='p-6'>
-                    <div className='flex justify-between items-center mb-6'>
-                        <h2 className='text-xl font-black text-slate-800 tracking-tight'>
-                            {isEditing
-                                ? "Modifier l'activité"
-                                : 'Nouvelle Activité'}
-                        </h2>
-                        {isEditing && (
-                            <button
-                                type='button'
-                                onClick={handleDelete}
-                                className='text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-tighter transition'
-                            >
-                                Supprimer
-                            </button>
-                        )}
-                    </div>
+            <AgendasModal
+                showAgendasModal={showAgendasModal}
+                setShowAgendasModal={setShowAgendasModal}
+                profiles={profiles}
+            />
 
-                    <div className='space-y-4'>
-                        <div>
-                            <InputLabel
-                                htmlFor='label'
-                                value="Nom de l'activité"
-                            />
-                            <TextInput
-                                id='label'
-                                value={data.label}
-                                onChange={e => setData('label', e.target.value)}
-                                className='mt-1 block w-full'
-                                placeholder='ex: Réunion Client, Sport...'
-                            />
-                            <InputError
-                                message={errors.label}
-                                className='mt-1'
-                            />
-                        </div>
-
-                        <div className='grid grid-cols-2 gap-4'>
-                            <div>
-                                <InputLabel value='⏰ Début' />
-                                <TextInput
-                                    type='time'
-                                    value={data.start_time}
-                                    onChange={e =>
-                                        setData('start_time', e.target.value)
-                                    }
-                                    className='mt-1 block w-full'
-                                />
-                                <InputError
-                                    message={errors.start_time}
-                                    className='mt-1'
-                                />
-                            </div>
-                            <div>
-                                <InputLabel value='🏁 Fin' />
-                                <TextInput
-                                    type='time'
-                                    value={data.end_time}
-                                    onChange={e =>
-                                        setData('end_time', e.target.value)
-                                    }
-                                    className='mt-1 block w-full'
-                                />
-                                <InputError
-                                    message={errors.end_time}
-                                    className='mt-1'
-                                />
-                            </div>
-                        </div>
-
-                        {isEditing && data.group_id && (
-                            <div className='p-3 bg-indigo-50 rounded-lg border border-indigo-100'>
-                                <label className='flex items-center'>
-                                    <Checkbox
-                                        name='scope'
-                                        checked={data.scope === 'series'}
-                                        onChange={e =>
-                                            setData(
-                                                'scope',
-                                                e.target.checked
-                                                    ? 'series'
-                                                    : 'single'
-                                            )
-                                        }
-                                    />
-                                    <span className='ms-2 text-sm text-indigo-900 font-medium'>
-                                        Appliquer aux 4 semaines
-                                    </span>
-                                </label>
-                                <p className='text-[10px] text-indigo-600 mt-1 ml-6'>
-                                    Si coché, la modification ou la suppression
-                                    s'appliquera à toute la série.
-                                </p>
-                            </div>
-                        )}
-
-                        {!isEditing && (
-                            <div>
-                                <InputLabel
-                                    value='Jours de la semaine'
-                                    className='mb-2'
-                                />
-                                <div className='flex flex-wrap gap-2'>
-                                    {days.map((day, index) => (
-                                        <button
-                                            key={day}
-                                            type='button'
-                                            onClick={() =>
-                                                handleDayChange(index)
-                                            }
-                                            className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${data.days.includes(index) ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-slate-50 text-slate-500 border-slate-200 hover:border-slate-300'}`}
-                                        >
-                                            {day.slice(0, 3)}
-                                        </button>
-                                    ))}
-                                </div>
-                                <p className='text-[10px] text-slate-400 mt-1 italic'>
-                                    Créera automatiquement l'activité pour les 4
-                                    semaines à venir.
-                                </p>
-                                <InputError
-                                    message={errors.days}
-                                    className='mt-1'
-                                />
-                            </div>
-                        )}
-
-                        <div>
-                            <InputLabel value='Catégorie' className='mb-2' />
-                            <div className='flex bg-slate-100 p-1 rounded-xl'>
-                                <button
-                                    type='button'
-                                    onClick={() => setData('type', 'pro')}
-                                    className={`flex-1 py-2 text-xs rounded-lg transition-all ${data.type === 'pro' ? 'bg-white shadow-sm font-bold text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
-                                >
-                                    💼 Professionnel
-                                </button>
-                                <button
-                                    type='button'
-                                    onClick={() => setData('type', 'perso')}
-                                    className={`flex-1 py-2 text-xs rounded-lg transition-all ${data.type === 'perso' ? 'bg-white shadow-sm font-bold text-emerald-600' : 'text-slate-500 hover:text-slate-700'}`}
-                                >
-                                    🏠 Personnel
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className='mt-8 flex justify-end gap-3'>
-                        <SecondaryButton onClick={() => setShowModal(false)}>
-                            Annuler
-                        </SecondaryButton>
-                        <PrimaryButton disabled={processing}>
-                            {isEditing ? 'Mettre à jour' : 'Planifier'}
-                        </PrimaryButton>
-                    </div>
-                </form>
-            </Modal>
-
-            <Modal
-                show={showAgendasModal}
-                onClose={() => setShowAgendasModal(false)}
-            >
-                <div className='p-6'>
-                    <h2 className='text-xl font-black text-slate-800 tracking-tight mb-6'>
-                        Gérer mes Agendas
-                    </h2>
-
-                    <div className='space-y-4 mb-8'>
-                        {profiles.map(profile => (
-                            <div
-                                key={profile.id}
-                                className='p-4 border border-slate-200 rounded-xl bg-slate-50 flex flex-col sm:flex-row gap-4 justify-between sm:items-center'
-                            >
-                                <div className='flex-1'>
-                                    <input
-                                        type='text'
-                                        defaultValue={profile.name}
-                                        onBlur={e => {
-                                            if (
-                                                e.target.value !== profile.name
-                                            ) {
-                                                router.put(
-                                                    `/agendas/${profile.id}`,
-                                                    {
-                                                        name: e.target.value,
-                                                        is_public:
-                                                            profile.is_public,
-                                                    },
-                                                    { preserveScroll: true }
-                                                );
-                                            }
-                                        }}
-                                        className='font-bold text-slate-800 bg-transparent border-none p-0 focus:ring-0 w-full'
-                                    />
-                                    <div className='flex items-center mt-2 gap-2'>
-                                        <label className='flex items-center text-xs text-slate-600 cursor-pointer'>
-                                            <Checkbox
-                                                checked={
-                                                    profile.is_public === 1 ||
-                                                    profile.is_public === true
-                                                }
-                                                onChange={e =>
-                                                    router.put(
-                                                        `/agendas/${profile.id}`,
-                                                        {
-                                                            name: profile.name,
-                                                            is_public:
-                                                                e.target
-                                                                    .checked,
-                                                        },
-                                                        { preserveScroll: true }
-                                                    )
-                                                }
-                                            />
-                                            <span className='ml-2'>
-                                                Lien public activé
-                                            </span>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                <div className='flex items-center gap-2'>
-                                    {(profile.is_public === 1 ||
-                                        profile.is_public === true) && (
-                                        <>
-                                            <a
-                                                href={`/view/${profile.slug}`}
-                                                target='_blank'
-                                                rel='noreferrer'
-                                                className='text-xs bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-200 transition'
-                                            >
-                                                👀 Voir
-                                            </a>
-                                            <button
-                                                onClick={() => {
-                                                    const url = `${window.location.origin}/view/${profile.slug}`;
-                                                    if (
-                                                        navigator.clipboard &&
-                                                        window.isSecureContext
-                                                    ) {
-                                                        navigator.clipboard.writeText(
-                                                            url
-                                                        );
-                                                        alert(
-                                                            'Lien public copié !'
-                                                        );
-                                                    } else {
-                                                        prompt(
-                                                            'Copiez manuellement ce lien :',
-                                                            url
-                                                        );
-                                                    }
-                                                }}
-                                                className='text-xs bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-lg font-bold hover:bg-emerald-200 transition'
-                                            >
-                                                🔗 Copier
-                                            </button>
-                                        </>
-                                    )}
-                                    <button
-                                        onClick={() => {
-                                            if (
-                                                confirm(
-                                                    'Supprimer cet agenda et toutes ses activités ?'
-                                                )
-                                            ) {
-                                                router.delete(
-                                                    `/agendas/${profile.id}`,
-                                                    { preserveScroll: true }
-                                                );
-                                            }
-                                        }}
-                                        className='text-xs text-red-500 hover:text-red-700 font-bold p-2'
-                                        disabled={profiles.length <= 1}
-                                    >
-                                        🗑️
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className='border-t border-slate-200 pt-6'>
-                        <h3 className='text-sm font-bold text-slate-800 mb-3'>
-                            Nouvel agenda
-                        </h3>
-                        <div className='flex gap-2'>
-                            <TextInput
-                                value={newAgendaName}
-                                onChange={e => setNewAgendaName(e.target.value)}
-                                placeholder='Ex: Cours Lycée, Marie...'
-                                className='flex-1'
-                            />
-                            <PrimaryButton
-                                onClick={() => {
-                                    if (newAgendaName.trim()) {
-                                        router.post(
-                                            '/agendas',
-                                            { name: newAgendaName },
-                                            {
-                                                onSuccess: () =>
-                                                    setNewAgendaName(''),
-                                            }
-                                        );
-                                    }
-                                }}
-                                disabled={!newAgendaName.trim()}
-                            >
-                                Ajouter
-                            </PrimaryButton>
-                        </div>
-                    </div>
-
-                    <div className='mt-6 flex justify-end'>
-                        <SecondaryButton
-                            onClick={() => setShowAgendasModal(false)}
-                        >
-                            Fermer
-                        </SecondaryButton>
-                    </div>
-                </div>
-            </Modal>
+            <ActivityForm
+                showModal={showModal}
+                setShowModal={handleCloseModal}
+                isEditing={isEditing}
+                setIsEditing={setIsEditing}
+                currentProfileId={currentProfileId}
+                activityToEdit={activityToEdit}
+            />
         </AuthenticatedLayout>
     );
 }
