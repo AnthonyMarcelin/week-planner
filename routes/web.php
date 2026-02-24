@@ -28,12 +28,14 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/activities', [ActivityController::class, 'index'])->name('activities.index');
     Route::post('/activities', [ActivityController::class, 'store'])->name('activities.store');
-    Route::put('/activities/{activity}', [ActivityController::class, 'update'])->name('activities.update');
-    Route::delete('/activities/{activity}', [ActivityController::class, 'destroy'])->name('activities.destroy');
+    Route::patch('/activities/{activity}', [ActivityController::class, 'update'])->middleware('can:update,activity')->name('activities.update');
+    Route::delete('/activities/{activity}', [ActivityController::class, 'destroy'])->middleware('can:delete,activity')->name('activities.destroy');
 
     Route::post('/agendas', [\App\Http\Controllers\AgendaController::class, 'store'])->name('agendas.store');
-    Route::put('/agendas/{id}', [\App\Http\Controllers\AgendaController::class, 'update'])->name('agendas.update');
-    Route::delete('/agendas/{id}', [\App\Http\Controllers\AgendaController::class, 'destroy'])->name('agendas.destroy');
+    Route::put('/agendas/{agenda}', [\App\Http\Controllers\AgendaController::class, 'update'])
+        ->middleware('can:update,agenda')->name('agendas.update');
+    Route::delete('/agendas/{agenda}', [\App\Http\Controllers\AgendaController::class, 'destroy'])
+        ->middleware('can:delete,agenda')->name('agendas.destroy');
 });
 
 require __DIR__.'/auth.php';

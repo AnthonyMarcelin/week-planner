@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Profile;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 class AgendaController extends Controller
 {
+    use AuthorizesRequests;
     public function store(Request $request)
     {
         $request->validate([
@@ -20,20 +22,16 @@ class AgendaController extends Controller
 
         $user->profiles()->create([
             'name' => $request->name,
-            'slug' => Str::random(10),
+            'slug' => Str::random(24),
             'is_public' => false,
         ]);
 
         return redirect()->back();
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, Profile $agenda)
     {
-        $agenda = Profile::findOrFail($id);
-
-        if ($agenda->user_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('update', $agenda);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -45,13 +43,9 @@ class AgendaController extends Controller
         return redirect()->back();
     }
 
-    public function destroy($id)
+    public function destroy(Profile $agenda)
     {
-        $agenda = Profile::findOrFail($id);
-
-        if ($agenda->user_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('delete', $agenda);
 
         /** @var \App\Models\User $user */
         $user = Auth::user();

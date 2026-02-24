@@ -1,14 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Head } from '@inertiajs/react';
 import SecondaryButton from '@/Components/SecondaryButton';
-
-const timeToNumber = timeStr => {
-    if (!timeStr) return 0;
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    return hours + minutes / 60;
-};
-
-const HOUR_HEIGHT = 40;
+import { HOUR_HEIGHT_PUBLIC, timeToNumber } from '@/constants';
 
 export default function PublicPlanner({ profileName, activities }) {
     const [isNightHidden, setIsNightHidden] = useState(true);
@@ -220,8 +213,8 @@ export default function PublicPlanner({ profileName, activities }) {
                                                                 }
                                                                 className={`absolute left-1 right-1 rounded-md p-2 text-[10px] leading-tight overflow-hidden shadow-sm border-l-4 z-10 ${activity.type === 'pro' ? 'bg-indigo-50 text-indigo-700 border-indigo-500' : 'bg-emerald-50 text-emerald-700 border-emerald-500'}`}
                                                                 style={{
-                                                                    top: `${(start - startHour) * HOUR_HEIGHT}px`,
-                                                                    height: `${duration * HOUR_HEIGHT}px`,
+                                                                    top: `${(start - startHour) * HOUR_HEIGHT_PUBLIC}px`,
+                                                                    height: `${duration * HOUR_HEIGHT_PUBLIC}px`,
                                                                 }}
                                                             >
                                                                 <div className='font-bold truncate'>

@@ -13,6 +13,7 @@ class Activity extends Model
         'end_time',
         'type',
         'user_id',
+        'profile_id',
         'week_index',
         'group_id',
     ];
