@@ -39,12 +39,10 @@ export default function ActivityForm({
         profile_id: currentProfileId,
     });
 
-    // Synchroniser profile_id quand il change
     useEffect(() => {
         setData('profile_id', currentProfileId);
     }, [currentProfileId, setData]);
 
-    // Pré-remplir le formulaire quand on édite une activité
     useEffect(() => {
         if (activityToEdit && isEditing) {
             setData({

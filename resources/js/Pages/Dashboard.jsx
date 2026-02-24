@@ -58,7 +58,6 @@ export default function Dashboard({
         };
     }, [weekOffset]);
 
-    // Gestion du profil par défaut
     if (profiles.length === 0) {
         return null;
     }

@@ -54,7 +54,6 @@ export default function WeekGrid({
 
     return (
         <>
-            {/* Navigation mobile */}
             <div className='md:hidden flex overflow-x-auto pb-4 gap-2 px-4 scrollbar-hide'>
                 {days.map((day, index) => {
                     const d = new Date(weekDates.mondayObject);
@@ -85,7 +84,6 @@ export default function WeekGrid({
                 })}
             </div>
 
-            {/* Affichage mobile du jour sélectionné */}
             <div className='md:hidden bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4'>
                 <div className='flex items-center justify-between'>
                     <span className='font-bold text-yellow-800'>
@@ -100,7 +98,6 @@ export default function WeekGrid({
                 </div>
             </div>
 
-            {/* Grille principale */}
             <div className='flex bg-white shadow-xl shadow-slate-200/60 sm:rounded-2xl overflow-hidden border border-slate-200'>
                 {/* Colonne des heures */}
                 <div className='w-14 sm:w-20 bg-slate-50/50 border-r border-slate-200 pt-[48px] flex-shrink-0'>
@@ -114,7 +111,6 @@ export default function WeekGrid({
                     ))}
                 </div>
 
-                {/* Grille des jours */}
                 <div className='flex-1 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 overflow-hidden'>
                     {days.map((day, dayIndex) => {
                         const columnDate = new Date(
@@ -134,7 +130,6 @@ export default function WeekGrid({
                                     dayIndex === selectedDayMobile ? 'block' : 'hidden'
                                 } md:block`}
                             >
-                                {/* En-tête du jour */}
                                 <div
                                     className={`h-[48px] border-b border-slate-200 flex flex-col items-center justify-center font-bold text-[10px] uppercase tracking-widest transition-colors
                                     ${isToday ? 'bg-indigo-600 text-white shadow-inner' : 'bg-slate-50/30 text-slate-600'}`}
@@ -153,7 +148,6 @@ export default function WeekGrid({
                                     </span>
                                 </div>
 
-                                {/* Contenu du jour */}
                                 <div className='relative'>
                                     {visibleHours.map(hour => (
                                         <div
@@ -162,7 +156,6 @@ export default function WeekGrid({
                                         ></div>
                                     ))}
 
-                                    {/* Activités du jour */}
                                     {activities &&
                                         activities
                                             .filter(
